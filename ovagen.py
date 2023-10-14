@@ -6,11 +6,11 @@ python ovagen.py --vmx_types 10,11,12,13,14,15
 
 Will add support vmx 10,..15
 
-      <ovf:System>
-        <vssd:ElementName>Virtual Hardware Family</vssd:ElementName>
-        <vssd:InstanceID>0</vssd:InstanceID>
-        <vssd:VirtualSystemType>vmx-10 vmx-11 vmx-12 vmx-13 vmx-14 vmx-15</vssd:VirtualSystemType>
-      </ovf:System>
+  <ovf:System>
+    <vssd:ElementName>Virtual Hardware Family</vssd:ElementName>
+    <vssd:InstanceID>0</vssd:InstanceID>
+    <vssd:VirtualSystemType>vmx-10 vmx-11 vmx-12 vmx-13 vmx-14 vmx-15</vssd:VirtualSystemType>
+  </ovf:System>
 
  add ovf:value
 
@@ -48,7 +48,6 @@ def find_product_section(
     attr_name = f'.//{{{namespace}}}ProductSection'
     for pd_section in xml_root.findall(attr_name):
         return pd_section
-
     return None
 
 
@@ -85,17 +84,16 @@ def properties_to_json(
         namespace: str,
         product_tree: ET.Element
 ):
-    """
-    :param product_tree:
+    """take all ovf properties and serialize to json. So we cna display and prompt user
+    without any xml walk.
+    :param product_tree: a product tree or some xml tree
     :return:
     """
     properties_list = []
     property_elem_query = f'.//{{{namespace}}}Property'
-
     for property_elem in product_tree.findall(property_elem_query):
         property_json = property_to_json(property_elem)
         properties_list.append(property_json)
-
     return properties_list
 
 
@@ -104,11 +102,10 @@ def update_ovf_with_user_values(
         user_values,
         output_file: str
 ):
-    """
-    Update the given OVF XML tree with the given user values.
-    :param xml_root:
-    :param user_values:
-    :param output_file:
+    """Update the given OVF XML tree with the given user values.
+    :param xml_root: a root of xml document
+    :param user_values: a dict of user values.  Each should have ovf:value , ovf:key etc
+    :param output_file: the path to output file.
     :return:
     """
     for prop in xml_root.findall('.//{http://schemas.dmtf.org/ovf/envelope/1}Property'):
@@ -119,19 +116,40 @@ def update_ovf_with_user_values(
             label_elem.text = user_values[ovf_key]
 
     tree = ET.ElementTree(xml_root)
-    ET.register_namespace('ovf', 'http://schemas.dmtf.org/ovf/envelope/1')
-    ET.register_namespace('vmw', 'http://www.vmware.com/schema/ovf')
-    ET.register_namespace('rasd', 'http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData')
-    ET.register_namespace('vssd', 'http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_VirtualSystemSettingData')
+    ET.register_namespace(
+        'ovf', 'http://schemas.dmtf.org/ovf/envelope/1')
+    ET.register_namespace(
+        'vmw', 'http://www.vmware.com/schema/ovf')
+    ET.register_namespace(
+        'rasd', 'http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData')
+    ET.register_namespace(
+        'vssd', 'http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_VirtualSystemSettingData')
     tree.write(output_file, encoding="utf-8", xml_declaration=True)
 
 
 def prompt_user_for_values(
         properties_json
 ):
-    """
+    """Prompt the user for each OVF property values for the given properties.
+    Note it prompt only for the one ovf:userConfigurable="true"
 
-    :param properties_json:
+    * ovf:key, indicating what type of configuration is described
+
+    * ovf:type, indicating the format of this information (string,
+    boolean, etc.)
+
+    * ovf:qualifiers, indicating any format restrictions (such as string
+    minimum or maximum length)
+
+    * ovf:value, containing the actual configuration information (such as
+    a string, an IP address, etc.)
+
+    * ovf:userConfigurable, indicating whether the property is meant to be
+    edited by the user (through a tool such as the VMware vSphere
+    client) before deploying the VM, or whether it should be passed
+    through un-edited.
+
+    :param properties_json:  a list of properties
     :return:
     """
     user_values = {}
